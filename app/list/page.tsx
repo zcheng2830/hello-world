@@ -6,12 +6,15 @@ export default async function ListPage() {
     const { data, error } = await supabase
         .from("images")
         .select("id, created_datetime_utc, url, image_description, is_public")
+        .eq("is_public", true)
         .order("created_datetime_utc", { ascending: false })
         .limit(30);
 
     return (
         <main className="p-10">
-            <h1 className="text-3xl font-semibold mb-6">Supabase List</h1>
+            <h1 className="text-3xl font-semibold mb-6">
+                Image Feed (Supabase)
+            </h1>
 
             {error ? (
                 <div className="border rounded-lg p-4">
@@ -23,7 +26,10 @@ export default async function ListPage() {
             ) : (
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                     {(data ?? []).map((row: any) => (
-                        <div key={row.id} className="border rounded-xl p-4">
+                        <div
+                            key={row.id}
+                            className="border rounded-xl p-4 transition-transform hover:scale-[1.01] hover:shadow-lg"
+                        >
                             <div className="text-xs opacity-70 mb-2">
                                 {row.created_datetime_utc
                                     ? new Date(row.created_datetime_utc).toLocaleString()
@@ -45,7 +51,11 @@ export default async function ListPage() {
 
                             <div className="mt-3 text-sm">
                                 <div className="font-semibold line-clamp-2">
-                                    {row.image_description ?? "(no description)"}
+                                    {row.image_description ? (
+                                        row.image_description
+                                    ) : (
+                                        <span className="opacity-50 italic">(no description)</span>
+                                    )}
                                 </div>
 
                                 <div className="mt-2 text-xs opacity-70 break-all">
