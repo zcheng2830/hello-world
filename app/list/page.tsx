@@ -8,7 +8,7 @@ export default async function ListPage() {
         .select("id, created_datetime_utc, url, image_description, is_public")
         .eq("is_public", true)
         .order("created_datetime_utc", { ascending: false })
-        .limit(30);
+        .limit(100);
 
     return (
         <main className="p-10">
