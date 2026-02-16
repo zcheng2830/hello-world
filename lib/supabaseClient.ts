@@ -1,11 +1,13 @@
-import { createClient } from "@supabase/supabase-js";
+// lib/supabaseClient.ts
+import { createBrowserClient } from "@supabase/ssr";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+export function createSupabaseBrowserClient() {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
-if (!supabaseUrl || !supabaseAnonKey) {
-    throw new Error("Missing Supabase env vars. Check .env.local and Vercel env settings.");
+    if (!supabaseUrl || !supabaseAnonKey) {
+        throw new Error("Missing Supabase env vars.");
+    }
+
+    return createBrowserClient(supabaseUrl, supabaseAnonKey);
 }
-
-// After the guard above, we can safely assert they're strings
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);

@@ -1,8 +1,17 @@
-import { supabase } from "@/lib/supabaseClient";
+import AuthGate from "./AuthGate";
+import { createSupabaseServerClient } from "@/lib/supabaseServer";
 
 export const dynamic = "force-dynamic";
 
 export default async function ListPage() {
+    const supabase = await createSupabaseServerClient();
+
+    const {
+        data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) return <AuthGate />;
+
     const { data, error } = await supabase
         .from("images")
         .select("id, created_datetime_utc, url, image_description, is_public")
@@ -12,9 +21,8 @@ export default async function ListPage() {
 
     return (
         <main className="p-10">
-            <h1 className="text-3xl font-semibold mb-6">
-                Image Feed (Supabase)
-            </h1>
+            <h1 className="text-3xl font-semibold mb-2">Image Feed (Supabase)</h1>
+            <div className="text-sm opacity-70 mb-6">Signed in as: {user.email}</div>
 
             {error ? (
                 <div className="border rounded-lg p-4">
