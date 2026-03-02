@@ -26,7 +26,7 @@ async function updateSession(request: NextRequest) {
     return response;
 }
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
     return updateSession(request);
 }
 
