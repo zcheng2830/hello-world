@@ -19,6 +19,12 @@ type CaptionRow = {
   is_public: boolean;
 };
 
+function formatUtcDateTime(value: string | null) {
+  if (!value) return "";
+  // Keep this deterministic across server/client by avoiding Date/Intl locale formatting.
+  return value.replace("T", " ").replace("+00:00", " UTC");
+}
+
 export default async function ListPage() {
   const supabase = await createSupabaseServerClient();
 
@@ -28,24 +34,25 @@ export default async function ListPage() {
 
   if (!user) return <AuthGate />;
 
-  // 1) Fetch public images
+  // 1) Fetch images visible to current user (RLS decides visibility)
   const { data: images, error: imgError } = await supabase
       .from("images")
       .select("id, created_datetime_utc, url, image_description, is_public")
-      .eq("is_public", true)
       .order("created_datetime_utc", { ascending: false })
+      .order("id", { ascending: true })
       .limit(100);
 
   const rows = (images ?? []) as ImageRow[];
   const imageIds = rows.map((r) => r.id);
 
-  // 2) Fetch public captions for those images
+  // 2) Fetch captions visible to current user for those images
   const { data: captions, error: capError } = imageIds.length
       ? await supabase
           .from("captions")
           .select("id, image_id, content, is_public")
           .in("image_id", imageIds)
-          .eq("is_public", true)
+          .order("created_datetime_utc", { ascending: false })
+          .order("id", { ascending: true })
       : { data: [], error: null };
 
   const captionRows = (captions ?? []) as CaptionRow[];
@@ -60,16 +67,14 @@ export default async function ListPage() {
 
   const error = imgError ?? capError;
 
-  // Helper render: image-only card (for images with no public captions)
+  // Helper render: image-only card (for images with no visible captions)
   const renderImageOnlyCard = (row: ImageRow) => (
       <div
           key={row.id}
           className="border rounded-xl p-4 transition-transform hover:scale-[1.01] hover:shadow-lg"
       >
         <div className="text-xs opacity-70 mb-2">
-          {row.created_datetime_utc
-              ? new Date(row.created_datetime_utc).toLocaleString()
-              : ""}
+          {formatUtcDateTime(row.created_datetime_utc)}
         </div>
 
         {row.url ? (
@@ -95,7 +100,7 @@ export default async function ListPage() {
           </div>
 
           <div className="mt-3 text-xs opacity-60 italic">
-            (no public captions for this image)
+            (no captions available for this image yet)
           </div>
 
           <div className="mt-3 text-xs opacity-70 break-all">image_id: {row.id}</div>
@@ -111,9 +116,7 @@ export default async function ListPage() {
           className="border rounded-xl p-4 transition-transform hover:scale-[1.01] hover:shadow-lg"
       >
         <div className="text-xs opacity-70 mb-2">
-          {row.created_datetime_utc
-              ? new Date(row.created_datetime_utc).toLocaleString()
-              : ""}
+          {formatUtcDateTime(row.created_datetime_utc)}
         </div>
 
         {row.url ? (

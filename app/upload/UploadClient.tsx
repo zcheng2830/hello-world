@@ -22,7 +22,37 @@ export default function UploadClient() {
     const [status, setStatus] = useState<string>("");
     const [cdnUrl, setCdnUrl] = useState<string>("");
     const [imageId, setImageId] = useState<string>("");
-    const [result, setResult] = useState<any[] | null>(null);
+    const [result, setResult] = useState<unknown[] | null>(null);
+
+    function normalizeCaptionResponse(payload: unknown): unknown[] {
+        if (Array.isArray(payload)) return payload;
+        if (payload && typeof payload === "object") {
+            const maybeCaptions = (payload as { captions?: unknown }).captions;
+            if (Array.isArray(maybeCaptions)) return maybeCaptions;
+        }
+        return [];
+    }
+
+    async function waitForPersistedCaptions(imageIdToCheck: string, timeoutMs = 20000) {
+        const supabase = createSupabaseBrowserClient();
+        const deadline = Date.now() + timeoutMs;
+
+        while (Date.now() < deadline) {
+            const { data, error } = await supabase
+                .from("captions")
+                .select("id, image_id, content, is_public")
+                .eq("image_id", imageIdToCheck)
+                .limit(20);
+
+            if (!error && Array.isArray(data) && data.length > 0) {
+                return data;
+            }
+
+            await new Promise((resolve) => setTimeout(resolve, 1000));
+        }
+
+        return [];
+    }
 
     async function getAccessToken() {
         const supabase = createSupabaseBrowserClient();
@@ -123,18 +153,36 @@ export default function UploadClient() {
                 },
                 body: JSON.stringify({ imageId: regJson.imageId }),
             });
+            const capBodyText = await capRes.text();
 
             if (!capRes.ok) {
-                const txt = await capRes.text();
-                throw new Error(`Generate captions failed: ${capRes.status} ${txt}`);
+                throw new Error(`Generate captions failed: ${capRes.status} ${capBodyText}`);
             }
 
-            const captions = await capRes.json();
-            setResult(Array.isArray(captions) ? captions : []);
-            setStatus("Done ✅ Captions generated.");
-        } catch (e: any) {
+            let captionPayload: unknown = null;
+            if (capBodyText) {
+                try {
+                    captionPayload = JSON.parse(capBodyText);
+                } catch {
+                    captionPayload = capBodyText;
+                }
+            }
+            const immediateCaptions = normalizeCaptionResponse(captionPayload);
+
+            setStatus("Step 4/4: waiting for captions to persist…");
+            const persistedCaptions = await waitForPersistedCaptions(regJson.imageId);
+
+            if (persistedCaptions.length > 0) {
+                setResult(persistedCaptions);
+                setStatus("Done ✅ Captions generated and persisted.");
+            } else {
+                setResult(immediateCaptions);
+                setStatus("Done ✅ Caption request accepted (captions may still be processing).");
+            }
+        } catch (e: unknown) {
             console.error(e);
-            setStatus(`Error: ${e?.message ?? String(e)}`);
+            const message = e instanceof Error ? e.message : String(e);
+            setStatus(`Error: ${message}`);
         } finally {
             setBusy(false);
         }
@@ -163,7 +211,8 @@ export default function UploadClient() {
 
                     <button
                         onClick={() => router.push("/list")}
-                        className="px-4 py-2 border rounded-lg"
+                        disabled={busy}
+                        className="px-4 py-2 border rounded-lg disabled:opacity-50"
                     >
                         Go to Feed
                     </button>
