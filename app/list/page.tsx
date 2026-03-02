@@ -1,6 +1,7 @@
 import AuthGate from "./AuthGate";
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
 import { voteCaption } from "./actions";
+import LogoutButton from "../components/LogoutButton";
 
 export const dynamic = "force-dynamic";
 
@@ -190,7 +191,10 @@ export default async function ListPage() {
   return (
       <main className="p-10">
         <h1 className="text-3xl font-semibold mb-2">Image Feed (Supabase)</h1>
-        <div className="text-sm opacity-70 mb-6">Signed in as: {user.email}</div>
+        <div className="mb-6 flex items-center justify-between gap-3">
+          <div className="text-sm opacity-70">Signed in as: {user.email}</div>
+          <LogoutButton />
+        </div>
 
         {error ? (
             <div className="border rounded-lg p-4">
