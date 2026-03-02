@@ -10,6 +10,7 @@ type ImageRow = {
   url: string | null;
   image_description: string | null;
   is_public: boolean;
+  profile_id: string | null;
 };
 
 type CaptionRow = {
@@ -17,6 +18,7 @@ type CaptionRow = {
   image_id: string;
   content: string | null;
   is_public: boolean;
+  profile_id: string | null;
 };
 
 function formatUtcDateTime(value: string | null) {
@@ -34,10 +36,11 @@ export default async function ListPage() {
 
   if (!user) return <AuthGate />;
 
-  // 1) Fetch images visible to current user (RLS decides visibility)
+  // 1) Fetch images: public OR owned by current user
   const { data: images, error: imgError } = await supabase
       .from("images")
-      .select("id, created_datetime_utc, url, image_description, is_public")
+      .select("id, created_datetime_utc, url, image_description, is_public, profile_id")
+      .or(`is_public.eq.true,profile_id.eq.${user.id}`)
       .order("created_datetime_utc", { ascending: false })
       .order("id", { ascending: true })
       .limit(100);
@@ -45,12 +48,13 @@ export default async function ListPage() {
   const rows = (images ?? []) as ImageRow[];
   const imageIds = rows.map((r) => r.id);
 
-  // 2) Fetch captions visible to current user for those images
+  // 2) Fetch captions: public OR owned by current user, for those images
   const { data: captions, error: capError } = imageIds.length
       ? await supabase
           .from("captions")
-          .select("id, image_id, content, is_public")
+          .select("id, image_id, content, is_public, profile_id")
           .in("image_id", imageIds)
+          .or(`is_public.eq.true,profile_id.eq.${user.id}`)
           .order("created_datetime_utc", { ascending: false })
           .order("id", { ascending: true })
       : { data: [], error: null };
