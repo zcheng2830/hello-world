@@ -20,6 +20,7 @@ export async function voteCaption(captionId: string, vote: 1 | -1) {
       .from("caption_votes")
       .update({
         vote_value: vote,
+        modified_by_user_id: user.id,
         modified_datetime_utc: now,
       })
       .eq("profile_id", user.id)
@@ -39,6 +40,8 @@ export async function voteCaption(captionId: string, vote: 1 | -1) {
     caption_id: captionId,
     profile_id: user.id,
     vote_value: vote,
+    created_by_user_id: user.id,
+    modified_by_user_id: user.id,
     created_datetime_utc: now,
     modified_datetime_utc: now,
   });
