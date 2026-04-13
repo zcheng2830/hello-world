@@ -21,7 +21,11 @@ type HumorFlavorOption = {
     description: string | null;
 };
 
-export default function UploadClient() {
+type UploadClientProps = {
+    mode?: "standalone" | "feed";
+};
+
+export default function UploadClient({ mode = "standalone" }: UploadClientProps) {
     const router = useRouter();
     const fileInputRef = useRef<HTMLInputElement | null>(null);
     const [file, setFile] = useState<File | null>(null);
@@ -34,6 +38,7 @@ export default function UploadClient() {
     const [flavorsError, setFlavorsError] = useState<string>("");
 
     const hasError = status.startsWith("Error:");
+    const isFeedMode = mode === "feed";
 
     useEffect(() => {
         let mounted = true;
@@ -279,7 +284,11 @@ export default function UploadClient() {
         <div className="max-w-xl space-y-4">
             <div className="border rounded-lg p-4">
                 <div className="text-sm font-semibold mb-2">Upload an image</div>
-                <div className="text-xs opacity-70">JPG, PNG, WEBP, GIF, or HEIC</div>
+                <div className="text-xs opacity-70">
+                    {isFeedMode
+                        ? "JPG, PNG, WEBP, GIF, or HEIC. New captions will appear after refresh."
+                        : "JPG, PNG, WEBP, GIF, or HEIC"}
+                </div>
 
                 <input
                     ref={fileInputRef}
@@ -338,24 +347,32 @@ export default function UploadClient() {
                         disabled={!file || busy}
                         className="px-4 py-2 border rounded-md disabled:opacity-50 hover:bg-black/5"
                     >
-                        {busy ? "Working…" : "Upload + Generate Captions"}
+                        {busy
+                            ? "Working…"
+                            : isFeedMode
+                              ? "Upload & Generate Captions"
+                              : "Generate Captions"}
                     </button>
 
-                    <button
-                        onClick={() => router.push("/list")}
-                        disabled={busy}
-                        className="px-4 py-2 border rounded-md disabled:opacity-50 hover:bg-black/5"
-                    >
-                        Go to Feed
-                    </button>
+                    {!isFeedMode ? (
+                        <button
+                            onClick={() => router.push("/list")}
+                            disabled={busy}
+                            className="px-4 py-2 border rounded-md disabled:opacity-50 hover:bg-black/5"
+                        >
+                            Go to Feed
+                        </button>
+                    ) : null}
 
-                    <button
-                        onClick={() => router.push("/")}
-                        disabled={busy}
-                        className="px-4 py-2 border rounded-md disabled:opacity-50 hover:bg-black/5"
-                    >
-                        Home
-                    </button>
+                    {!isFeedMode ? (
+                        <button
+                            onClick={() => router.push("/")}
+                            disabled={busy}
+                            className="px-4 py-2 border rounded-md disabled:opacity-50 hover:bg-black/5"
+                        >
+                            Home
+                        </button>
+                    ) : null}
                 </div>
 
                 {status && (
@@ -384,10 +401,12 @@ export default function UploadClient() {
                         </button>
                         <button
                             type="button"
-                            onClick={() => router.push("/list")}
+                            onClick={() =>
+                                isFeedMode ? router.refresh() : router.push("/list")
+                            }
                             className="px-3 py-1 text-xs border rounded-md hover:bg-black/5"
                         >
-                            Vote in Feed
+                            {isFeedMode ? "Refresh Feed" : "Vote in Feed"}
                         </button>
                     </div>
                 </div>

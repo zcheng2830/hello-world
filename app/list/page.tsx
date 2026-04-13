@@ -3,6 +3,7 @@ import AuthGate from "./AuthGate";
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
 import LogoutButton from "../components/LogoutButton";
 import VoteControls from "./VoteControls";
+import UploadClient from "../upload/UploadClient";
 
 export const dynamic = "force-dynamic";
 
@@ -168,16 +169,10 @@ export default async function ListPage() {
           <h1 className="text-3xl font-semibold mb-2">Caption Feed</h1>
           <div className="mb-2 text-sm opacity-70">Signed in as: {user.email}</div>
           <div className="mb-4 text-sm opacity-80">
-            Vote for the funniest caption under each image.
+            Start by uploading an image, then vote for the funniest caption.
           </div>
 
           <div className="mb-6 flex flex-wrap items-center gap-2">
-            <Link
-                href="/upload"
-                className="px-3 py-1 text-xs border rounded-md hover:bg-black/5"
-            >
-              Upload Page
-            </Link>
             <Link
                 href="/"
                 className="px-3 py-1 text-xs border rounded-md hover:bg-black/5"
@@ -186,6 +181,18 @@ export default async function ListPage() {
             </Link>
             <LogoutButton />
           </div>
+
+          <section className="mb-8">
+            <h2 className="text-lg font-semibold mb-2">Step 1: Upload and Generate</h2>
+            <p className="mb-3 text-sm opacity-75">
+              Choose an image, generate captions, then refresh this page to see it in the feed.
+            </p>
+            <UploadClient mode="feed" />
+          </section>
+
+          <section className="mb-4">
+            <h2 className="text-lg font-semibold">Step 2: Vote on Captions</h2>
+          </section>
 
           {error ? (
               <div className="border rounded-lg p-4">
@@ -198,16 +205,8 @@ export default async function ListPage() {
               <div className="border rounded-lg p-4">
                 <p className="font-semibold">No images yet.</p>
                 <p className="mt-1 text-sm opacity-70">
-                  Upload your first image to generate captions and start voting.
+                  Use Step 1 above to upload your first image and generate captions.
                 </p>
-                <div className="mt-3">
-                  <Link
-                      href="/upload"
-                      className="px-3 py-1 text-xs border rounded-md hover:bg-black/5"
-                  >
-                    Go to Upload
-                  </Link>
-                </div>
               </div>
           ) : (
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
