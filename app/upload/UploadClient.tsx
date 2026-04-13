@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabaseClient";
 
@@ -15,6 +15,12 @@ const SUPPORTED_TYPES = new Set([
     "image/heic",
 ]);
 
+type HumorFlavorOption = {
+    id: number;
+    slug: string | null;
+    description: string | null;
+};
+
 export default function UploadClient() {
     const router = useRouter();
     const [file, setFile] = useState<File | null>(null);
@@ -23,6 +29,43 @@ export default function UploadClient() {
     const [cdnUrl, setCdnUrl] = useState<string>("");
     const [imageId, setImageId] = useState<string>("");
     const [result, setResult] = useState<unknown[] | null>(null);
+    const [humorFlavors, setHumorFlavors] = useState<HumorFlavorOption[]>([]);
+    const [selectedHumorFlavorId, setSelectedHumorFlavorId] = useState<string>("");
+    const [flavorsLoading, setFlavorsLoading] = useState(true);
+    const [flavorsError, setFlavorsError] = useState<string>("");
+
+    useEffect(() => {
+        let mounted = true;
+
+        async function loadHumorFlavors() {
+            const supabase = createSupabaseBrowserClient();
+            setFlavorsLoading(true);
+            setFlavorsError("");
+
+            const { data, error } = await supabase
+                .from("humor_flavors")
+                .select("id, slug, description")
+                .order("id", { ascending: false })
+                .limit(100);
+
+            if (!mounted) return;
+
+            if (error) {
+                setFlavorsError(error.message);
+                setHumorFlavors([]);
+            } else {
+                setHumorFlavors((data ?? []) as HumorFlavorOption[]);
+            }
+
+            setFlavorsLoading(false);
+        }
+
+        void loadHumorFlavors();
+
+        return () => {
+            mounted = false;
+        };
+    }, []);
 
     function normalizeCaptionResponse(payload: unknown): unknown[] {
         if (Array.isArray(payload)) return payload;
@@ -145,13 +188,20 @@ export default function UploadClient() {
 
             // Step 4: Generate captions
             setStatus("Step 4/4: generating captions…");
+            const parsedFlavorId = Number.parseInt(selectedHumorFlavorId, 10);
+            const hasFlavorOverride =
+                selectedHumorFlavorId.length > 0 && Number.isFinite(parsedFlavorId);
             const capRes = await fetch(`${API_BASE}/pipeline/generate-captions`, {
                 method: "POST",
                 headers: {
                     Authorization: `Bearer ${token}`,
                     "Content-Type": "application/json",
                 },
-                body: JSON.stringify({ imageId: regJson.imageId }),
+                body: JSON.stringify(
+                    hasFlavorOverride
+                        ? { imageId: regJson.imageId, humorFlavorId: parsedFlavorId }
+                        : { imageId: regJson.imageId },
+                ),
             });
             const capBodyText = await capRes.text();
 
@@ -199,6 +249,34 @@ export default function UploadClient() {
                     disabled={busy}
                     onChange={(e) => setFile(e.target.files?.[0] ?? null)}
                 />
+
+                <div className="mt-3">
+                    <label className="text-sm font-semibold" htmlFor="humor-flavor-select">
+                        Humor flavor
+                    </label>
+                    <select
+                        id="humor-flavor-select"
+                        className="mt-1 w-full border rounded-lg p-2 text-sm"
+                        disabled={busy || flavorsLoading}
+                        value={selectedHumorFlavorId}
+                        onChange={(e) => setSelectedHumorFlavorId(e.target.value)}
+                    >
+                        <option value="">Default pipeline flavor</option>
+                        {humorFlavors.map((flavor) => (
+                            <option key={flavor.id} value={String(flavor.id)}>
+                                #{flavor.id} {flavor.slug ?? "(no slug)"}
+                            </option>
+                        ))}
+                    </select>
+                    {flavorsLoading ? (
+                        <div className="mt-1 text-xs opacity-70">Loading flavors…</div>
+                    ) : null}
+                    {flavorsError ? (
+                        <div className="mt-1 text-xs text-red-600">
+                            Could not load flavors: {flavorsError}
+                        </div>
+                    ) : null}
+                </div>
 
                 <div className="mt-3 flex gap-2">
                     <button
