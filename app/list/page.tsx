@@ -25,7 +25,11 @@ type VoteRow = {
 
 function formatUtcDateTime(value: string | null) {
   if (!value) return "";
-  // Keep this deterministic across server/client by avoiding Date/Intl locale formatting.
+  // Keep deterministic formatting without relying on Date/Intl.
+  const match = value.match(/^(\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2})/);
+  if (match) {
+    return `${match[1]} ${match[2]}:${match[3]} UTC`;
+  }
   return value.replace("T", " ").replace("+00:00", " UTC");
 }
 
@@ -90,12 +94,16 @@ export default async function ListPage() {
   }
 
   const error = imgError ?? capError ?? voteError;
+  const errorMessage =
+      error && typeof error === "object" && "message" in error
+          ? String((error as { message?: unknown }).message ?? "")
+          : "";
 
   // Helper render: image-only card (for images with no visible captions)
   const renderImageOnlyCard = (row: ImageRow) => (
       <div
           key={row.id}
-          className="border rounded-xl p-4 transition-transform hover:scale-[1.01] hover:shadow-lg"
+          className="border rounded-lg p-4 transition-transform hover:shadow-lg"
       >
         <div className="text-xs opacity-70 mb-2">
           {formatUtcDateTime(row.created_datetime_utc)}
@@ -126,7 +134,7 @@ export default async function ListPage() {
   const renderCaptionCard = (row: ImageRow, c: CaptionRow, currentVote: 1 | -1 | 0) => (
       <div
           key={c.id}
-          className="border rounded-xl p-4 transition-transform hover:scale-[1.01] hover:shadow-lg"
+          className="border rounded-lg p-4 transition-transform hover:shadow-lg"
       >
         <div className="text-xs opacity-70 mb-2">
           {formatUtcDateTime(row.created_datetime_utc)}
@@ -156,43 +164,63 @@ export default async function ListPage() {
 
   return (
       <main className="p-10">
-        <h1 className="text-3xl font-semibold mb-2">Caption Feed</h1>
-        <div className="mb-3 text-sm opacity-70">Signed in as: {user.email}</div>
+        <div className="mx-auto w-full max-w-6xl">
+          <h1 className="text-3xl font-semibold mb-2">Caption Feed</h1>
+          <div className="mb-2 text-sm opacity-70">Signed in as: {user.email}</div>
+          <div className="mb-4 text-sm opacity-80">
+            Vote for the funniest caption under each image.
+          </div>
 
-        <div className="mb-6 flex flex-wrap items-center gap-2">
-          <Link
-              href="/upload"
-              className="px-3 py-1 text-xs border rounded-md hover:bg-black/5"
-          >
-            Upload Page
-          </Link>
-          <Link
-              href="/"
-              className="px-3 py-1 text-xs border rounded-md hover:bg-black/5"
-          >
-            Home
-          </Link>
-          <LogoutButton />
+          <div className="mb-6 flex flex-wrap items-center gap-2">
+            <Link
+                href="/upload"
+                className="px-3 py-1 text-xs border rounded-md hover:bg-black/5"
+            >
+              Upload Page
+            </Link>
+            <Link
+                href="/"
+                className="px-3 py-1 text-xs border rounded-md hover:bg-black/5"
+            >
+              Home
+            </Link>
+            <LogoutButton />
+          </div>
+
+          {error ? (
+              <div className="border rounded-lg p-4">
+                <p className="font-semibold">Could not load the feed right now.</p>
+                {errorMessage ? (
+                    <p className="mt-1 text-sm opacity-70">{errorMessage}</p>
+                ) : null}
+              </div>
+          ) : rows.length === 0 ? (
+              <div className="border rounded-lg p-4">
+                <p className="font-semibold">No images yet.</p>
+                <p className="mt-1 text-sm opacity-70">
+                  Upload your first image to generate captions and start voting.
+                </p>
+                <div className="mt-3">
+                  <Link
+                      href="/upload"
+                      className="px-3 py-1 text-xs border rounded-md hover:bg-black/5"
+                  >
+                    Go to Upload
+                  </Link>
+                </div>
+              </div>
+          ) : (
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {rows.flatMap((row) => {
+                  const caps = captionsByImageId.get(row.id) ?? [];
+                  if (caps.length === 0) return [renderImageOnlyCard(row)];
+                  return caps.map((c) =>
+                      renderCaptionCard(row, c, voteByCaptionId.get(c.id) ?? 0),
+                  );
+                })}
+              </div>
+          )}
         </div>
-
-        {error ? (
-            <div className="border rounded-lg p-4">
-              <p className="font-semibold mb-2">Error fetching rows:</p>
-              <pre className="whitespace-pre-wrap text-sm">
-            {JSON.stringify(error, null, 2)}
-          </pre>
-            </div>
-        ) : (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {rows.flatMap((row) => {
-                const caps = captionsByImageId.get(row.id) ?? [];
-                if (caps.length === 0) return [renderImageOnlyCard(row)];
-                return caps.map((c) =>
-                    renderCaptionCard(row, c, voteByCaptionId.get(c.id) ?? 0),
-                );
-              })}
-            </div>
-        )}
       </main>
   );
 }

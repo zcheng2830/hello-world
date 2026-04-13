@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabaseClient";
 
@@ -23,6 +23,7 @@ type HumorFlavorOption = {
 
 export default function UploadClient() {
     const router = useRouter();
+    const fileInputRef = useRef<HTMLInputElement | null>(null);
     const [file, setFile] = useState<File | null>(null);
     const [busy, setBusy] = useState(false);
     const [status, setStatus] = useState<string>("");
@@ -31,6 +32,8 @@ export default function UploadClient() {
     const [selectedHumorFlavorId, setSelectedHumorFlavorId] = useState<string>("");
     const [flavorsLoading, setFlavorsLoading] = useState(true);
     const [flavorsError, setFlavorsError] = useState<string>("");
+
+    const hasError = status.startsWith("Error:");
 
     useEffect(() => {
         let mounted = true;
@@ -263,18 +266,43 @@ export default function UploadClient() {
         }
     }
 
+    function resetUploadForm() {
+        setFile(null);
+        setStatus("");
+        setCaptions([]);
+        if (fileInputRef.current) {
+            fileInputRef.current.value = "";
+        }
+    }
+
     return (
         <div className="max-w-xl space-y-4">
-            <div className="border rounded-xl p-4">
-                <div className="text-sm font-semibold mb-2">Choose an image</div>
+            <div className="border rounded-lg p-4">
+                <div className="text-sm font-semibold mb-2">Upload an image</div>
+                <div className="text-xs opacity-70">JPG, PNG, WEBP, GIF, or HEIC</div>
 
                 <input
+                    ref={fileInputRef}
                     type="file"
                     accept="image/*"
                     disabled={busy}
+                    className="hidden"
                     onChange={(e) => setFile(e.target.files?.[0] ?? null)}
                 />
-                {file ? <div className="mt-2 text-sm">{file.name}</div> : null}
+
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                    <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={busy}
+                        className="px-3 py-1 text-xs border rounded-md disabled:opacity-50 hover:bg-black/5"
+                    >
+                        Choose Image
+                    </button>
+                    <div className="text-sm">
+                        {file ? file.name : <span className="opacity-60">No file selected</span>}
+                    </div>
+                </div>
 
                 <div className="mt-3">
                     <label className="text-sm font-semibold" htmlFor="humor-flavor-select">
@@ -330,17 +358,38 @@ export default function UploadClient() {
                     </button>
                 </div>
 
-                {status && <div className="mt-3 text-sm opacity-80">{status}</div>}
+                {status && (
+                    <div className={`mt-3 text-sm ${hasError ? "text-red-600" : "opacity-80"}`}>
+                        {status}
+                    </div>
+                )}
             </div>
 
             {captions.length > 0 && (
-                <div className="border rounded-xl p-4">
+                <div className="border rounded-lg p-4">
                     <div className="text-sm font-semibold mb-2">Generated captions</div>
                     <ol className="list-decimal space-y-2 pl-5 text-sm">
                         {captions.map((caption, index) => (
                             <li key={`${caption}-${index}`}>{caption}</li>
                         ))}
                     </ol>
+
+                    <div className="mt-4 flex flex-wrap gap-2">
+                        <button
+                            type="button"
+                            onClick={resetUploadForm}
+                            className="px-3 py-1 text-xs border rounded-md hover:bg-black/5"
+                        >
+                            Upload Another
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => router.push("/list")}
+                            className="px-3 py-1 text-xs border rounded-md hover:bg-black/5"
+                        >
+                            Vote in Feed
+                        </button>
+                    </div>
                 </div>
             )}
         </div>
