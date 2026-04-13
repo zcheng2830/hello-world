@@ -26,9 +26,7 @@ export default function UploadClient() {
     const [file, setFile] = useState<File | null>(null);
     const [busy, setBusy] = useState(false);
     const [status, setStatus] = useState<string>("");
-    const [cdnUrl, setCdnUrl] = useState<string>("");
-    const [imageId, setImageId] = useState<string>("");
-    const [result, setResult] = useState<unknown[] | null>(null);
+    const [captions, setCaptions] = useState<string[]>([]);
     const [humorFlavors, setHumorFlavors] = useState<HumorFlavorOption[]>([]);
     const [selectedHumorFlavorId, setSelectedHumorFlavorId] = useState<string>("");
     const [flavorsLoading, setFlavorsLoading] = useState(true);
@@ -67,13 +65,42 @@ export default function UploadClient() {
         };
     }, []);
 
-    function normalizeCaptionResponse(payload: unknown): unknown[] {
-        if (Array.isArray(payload)) return payload;
+    function getCaptionText(value: unknown): string | null {
+        if (typeof value === "string" && value.trim().length > 0) return value.trim();
+
+        if (value && typeof value === "object") {
+            const row = value as {
+                content?: unknown;
+                caption?: unknown;
+                text?: unknown;
+            };
+            const candidate = row.content ?? row.caption ?? row.text;
+            if (typeof candidate === "string" && candidate.trim().length > 0) {
+                return candidate.trim();
+            }
+        }
+
+        return null;
+    }
+
+    function normalizeCaptionResponse(payload: unknown): string[] {
+        if (Array.isArray(payload)) {
+            return payload
+                .map((entry) => getCaptionText(entry))
+                .filter((entry): entry is string => Boolean(entry));
+        }
+
         if (payload && typeof payload === "object") {
             const maybeCaptions = (payload as { captions?: unknown }).captions;
-            if (Array.isArray(maybeCaptions)) return maybeCaptions;
+            if (Array.isArray(maybeCaptions)) {
+                return maybeCaptions
+                    .map((entry) => getCaptionText(entry))
+                    .filter((entry): entry is string => Boolean(entry));
+            }
         }
-        return [];
+
+        const singleCaption = getCaptionText(payload);
+        return singleCaption ? [singleCaption] : [];
     }
 
     async function waitForPersistedCaptions(imageIdToCheck: string, timeoutMs = 20000) {
@@ -83,12 +110,14 @@ export default function UploadClient() {
         while (Date.now() < deadline) {
             const { data, error } = await supabase
                 .from("captions")
-                .select("id, image_id, content, is_public")
+                .select("content")
                 .eq("image_id", imageIdToCheck)
                 .limit(20);
 
             if (!error && Array.isArray(data) && data.length > 0) {
-                return data;
+                return data
+                    .map((entry) => getCaptionText(entry))
+                    .filter((entry): entry is string => Boolean(entry));
             }
 
             await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -119,9 +148,7 @@ export default function UploadClient() {
 
         setBusy(true);
         setStatus("");
-        setResult(null);
-        setCdnUrl("");
-        setImageId("");
+        setCaptions([]);
 
         try {
             const token = await getAccessToken();
@@ -146,7 +173,6 @@ export default function UploadClient() {
             if (!presignedUrl || !returnedCdnUrl) {
                 throw new Error("Bad presign response (missing presignedUrl/cdnUrl)");
             }
-            setCdnUrl(returnedCdnUrl);
 
             // Step 2: Upload image bytes to presignedUrl
             setStatus("Step 2/4: uploading bytes…");
@@ -184,7 +210,6 @@ export default function UploadClient() {
 
             const regJson = await regRes.json();
             if (!regJson?.imageId) throw new Error("Bad register response (missing imageId)");
-            setImageId(regJson.imageId);
 
             // Step 4: Generate captions
             setStatus("Step 4/4: generating captions…");
@@ -223,10 +248,10 @@ export default function UploadClient() {
             const persistedCaptions = await waitForPersistedCaptions(regJson.imageId);
 
             if (persistedCaptions.length > 0) {
-                setResult(persistedCaptions);
+                setCaptions(persistedCaptions);
                 setStatus("Done ✅ Captions generated and persisted.");
             } else {
-                setResult(immediateCaptions);
+                setCaptions(immediateCaptions);
                 setStatus("Done ✅ Caption request accepted (captions may still be processing).");
             }
         } catch (e: unknown) {
@@ -249,6 +274,7 @@ export default function UploadClient() {
                     disabled={busy}
                     onChange={(e) => setFile(e.target.files?.[0] ?? null)}
                 />
+                {file ? <div className="mt-2 text-sm">{file.name}</div> : null}
 
                 <div className="mt-3">
                     <label className="text-sm font-semibold" htmlFor="humor-flavor-select">
@@ -264,7 +290,7 @@ export default function UploadClient() {
                         <option value="">Default pipeline flavor</option>
                         {humorFlavors.map((flavor) => (
                             <option key={flavor.id} value={String(flavor.id)}>
-                                #{flavor.id} {flavor.slug ?? "(no slug)"}
+                                {flavor.slug ?? flavor.description ?? "Custom flavor"}
                             </option>
                         ))}
                     </select>
@@ -282,7 +308,7 @@ export default function UploadClient() {
                     <button
                         onClick={handleUpload}
                         disabled={!file || busy}
-                        className="px-4 py-2 border rounded-lg disabled:opacity-50"
+                        className="px-4 py-2 border rounded-md disabled:opacity-50 hover:bg-black/5"
                     >
                         {busy ? "Working…" : "Upload + Generate Captions"}
                     </button>
@@ -290,33 +316,31 @@ export default function UploadClient() {
                     <button
                         onClick={() => router.push("/list")}
                         disabled={busy}
-                        className="px-4 py-2 border rounded-lg disabled:opacity-50"
+                        className="px-4 py-2 border rounded-md disabled:opacity-50 hover:bg-black/5"
                     >
                         Go to Feed
+                    </button>
+
+                    <button
+                        onClick={() => router.push("/")}
+                        disabled={busy}
+                        className="px-4 py-2 border rounded-md disabled:opacity-50 hover:bg-black/5"
+                    >
+                        Home
                     </button>
                 </div>
 
                 {status && <div className="mt-3 text-sm opacity-80">{status}</div>}
-
-                {cdnUrl && (
-                    <div className="mt-3 text-xs opacity-70 break-all">
-                        cdnUrl: {cdnUrl}
-                    </div>
-                )}
-
-                {imageId && (
-                    <div className="mt-1 text-xs opacity-70 break-all">
-                        imageId: {imageId}
-                    </div>
-                )}
             </div>
 
-            {result && (
+            {captions.length > 0 && (
                 <div className="border rounded-xl p-4">
                     <div className="text-sm font-semibold mb-2">Generated captions</div>
-                    <pre className="text-xs whitespace-pre-wrap">
-            {JSON.stringify(result, null, 2)}
-          </pre>
+                    <ol className="list-decimal space-y-2 pl-5 text-sm">
+                        {captions.map((caption, index) => (
+                            <li key={`${caption}-${index}`}>{caption}</li>
+                        ))}
+                    </ol>
                 </div>
             )}
         </div>

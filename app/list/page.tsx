@@ -1,7 +1,8 @@
+import Link from "next/link";
 import AuthGate from "./AuthGate";
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
-import { voteCaption } from "./actions";
 import LogoutButton from "../components/LogoutButton";
+import VoteControls from "./VoteControls";
 
 export const dynamic = "force-dynamic";
 
@@ -9,17 +10,17 @@ type ImageRow = {
   id: string;
   created_datetime_utc: string | null;
   url: string | null;
-  image_description: string | null;
-  is_public: boolean;
-  profile_id: string | null;
 };
 
 type CaptionRow = {
   id: string;
   image_id: string;
   content: string | null;
-  is_public: boolean;
-  profile_id: string | null;
+};
+
+type VoteRow = {
+  caption_id: string;
+  vote_value: number;
 };
 
 function formatUtcDateTime(value: string | null) {
@@ -40,7 +41,7 @@ export default async function ListPage() {
   // 1) Fetch images: public OR owned by current user
   const { data: images, error: imgError } = await supabase
       .from("images")
-      .select("id, created_datetime_utc, url, image_description, is_public, profile_id")
+      .select("id, created_datetime_utc, url")
       .or(`is_public.eq.true,profile_id.eq.${user.id}`)
       .order("created_datetime_utc", { ascending: false })
       .order("id", { ascending: true })
@@ -53,7 +54,7 @@ export default async function ListPage() {
   const { data: captions, error: capError } = imageIds.length
       ? await supabase
           .from("captions")
-          .select("id, image_id, content, is_public, profile_id")
+          .select("id, image_id, content")
           .in("image_id", imageIds)
           .or(`is_public.eq.true,profile_id.eq.${user.id}`)
           .order("created_datetime_utc", { ascending: false })
@@ -61,6 +62,24 @@ export default async function ListPage() {
       : { data: [], error: null };
 
   const captionRows = (captions ?? []) as CaptionRow[];
+  const captionIds = captionRows.map((c) => c.id);
+
+  // 3) Fetch current user's votes for visible captions (for button state)
+  const { data: votes, error: voteError } = captionIds.length
+      ? await supabase
+          .from("caption_votes")
+          .select("caption_id, vote_value")
+          .eq("profile_id", user.id)
+          .in("caption_id", captionIds)
+      : { data: [], error: null };
+
+  const voteRows = (votes ?? []) as VoteRow[];
+  const voteByCaptionId = new Map<string, 1 | -1>();
+  for (const vote of voteRows) {
+    if (vote.vote_value === 1 || vote.vote_value === -1) {
+      voteByCaptionId.set(vote.caption_id, vote.vote_value);
+    }
+  }
 
   // Group captions by image_id
   const captionsByImageId = new Map<string, CaptionRow[]>();
@@ -70,7 +89,7 @@ export default async function ListPage() {
     captionsByImageId.set(c.image_id, arr);
   }
 
-  const error = imgError ?? capError;
+  const error = imgError ?? capError ?? voteError;
 
   // Helper render: image-only card (for images with no visible captions)
   const renderImageOnlyCard = (row: ImageRow) => (
@@ -86,7 +105,7 @@ export default async function ListPage() {
             // eslint-disable-next-line @next/next/no-img-element
             <img
                 src={row.url}
-                alt={row.image_description ?? "image"}
+                alt="Uploaded image"
                 className="w-full h-48 object-cover rounded-lg"
             />
         ) : (
@@ -96,26 +115,15 @@ export default async function ListPage() {
         )}
 
         <div className="mt-3 text-sm">
-          <div className="font-semibold line-clamp-2">
-            {row.image_description ? (
-                row.image_description
-            ) : (
-                <span className="opacity-50 italic">(no description)</span>
-            )}
+          <div className="text-xs opacity-60 italic">
+            Captions are still being generated for this image.
           </div>
-
-          <div className="mt-3 text-xs opacity-60 italic">
-            (no captions available for this image yet)
-          </div>
-
-          <div className="mt-3 text-xs opacity-70 break-all">image_id: {row.id}</div>
-          <div className="mt-1 text-xs">{row.is_public ? "public" : "not public"}</div>
         </div>
       </div>
   );
 
   // Helper render: one-caption card (splits multiple captions into separate cards)
-  const renderCaptionCard = (row: ImageRow, c: CaptionRow) => (
+  const renderCaptionCard = (row: ImageRow, c: CaptionRow, currentVote: 1 | -1 | 0) => (
       <div
           key={c.id}
           className="border rounded-xl p-4 transition-transform hover:scale-[1.01] hover:shadow-lg"
@@ -128,7 +136,7 @@ export default async function ListPage() {
             // eslint-disable-next-line @next/next/no-img-element
             <img
                 src={row.url}
-                alt={row.image_description ?? "image"}
+                alt="Uploaded image"
                 className="w-full h-48 object-cover rounded-lg"
             />
         ) : (
@@ -138,61 +146,32 @@ export default async function ListPage() {
         )}
 
         <div className="mt-3 text-sm">
-          <div className="font-semibold line-clamp-2">
-            {row.image_description ? (
-                row.image_description
-            ) : (
-                <span className="opacity-50 italic">(no description)</span>
-            )}
+          <div className="border rounded-lg p-3">
+            <div className="text-base">{c.content ?? "(no caption content)"}</div>
+            <VoteControls captionId={c.id} initialVote={currentVote} />
           </div>
-
-          <div className="mt-3 border rounded-lg p-3">
-            <div className="text-sm">{c.content ?? "(no caption content)"}</div>
-
-            <div className="mt-2 flex gap-2">
-              <form
-                  action={async () => {
-                    "use server";
-                    await voteCaption(c.id, 1); // ✅ caption id
-                  }}
-              >
-                <button
-                    type="submit"
-                    className="px-3 py-1 text-xs border rounded-lg hover:shadow"
-                >
-                  👍 Upvote
-                </button>
-              </form>
-
-              <form
-                  action={async () => {
-                    "use server";
-                    await voteCaption(c.id, -1); // ✅ caption id
-                  }}
-              >
-                <button
-                    type="submit"
-                    className="px-3 py-1 text-xs border rounded-lg hover:shadow"
-                >
-                  👎 Downvote
-                </button>
-              </form>
-            </div>
-
-            <div className="mt-2 text-[11px] opacity-60 break-all">caption_id: {c.id}</div>
-          </div>
-
-          <div className="mt-3 text-xs opacity-70 break-all">image_id: {row.id}</div>
-          <div className="mt-1 text-xs">{row.is_public ? "public" : "not public"}</div>
         </div>
       </div>
   );
 
   return (
       <main className="p-10">
-        <h1 className="text-3xl font-semibold mb-2">Image Feed (Supabase)</h1>
-        <div className="mb-6 flex items-center justify-between gap-3">
-          <div className="text-sm opacity-70">Signed in as: {user.email}</div>
+        <h1 className="text-3xl font-semibold mb-2">Caption Feed</h1>
+        <div className="mb-3 text-sm opacity-70">Signed in as: {user.email}</div>
+
+        <div className="mb-6 flex flex-wrap items-center gap-2">
+          <Link
+              href="/upload"
+              className="px-3 py-1 text-xs border rounded-md hover:bg-black/5"
+          >
+            Upload Page
+          </Link>
+          <Link
+              href="/"
+              className="px-3 py-1 text-xs border rounded-md hover:bg-black/5"
+          >
+            Home
+          </Link>
           <LogoutButton />
         </div>
 
@@ -208,7 +187,9 @@ export default async function ListPage() {
               {rows.flatMap((row) => {
                 const caps = captionsByImageId.get(row.id) ?? [];
                 if (caps.length === 0) return [renderImageOnlyCard(row)];
-                return caps.map((c) => renderCaptionCard(row, c));
+                return caps.map((c) =>
+                    renderCaptionCard(row, c, voteByCaptionId.get(c.id) ?? 0),
+                );
               })}
             </div>
         )}
