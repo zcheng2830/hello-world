@@ -6,14 +6,14 @@ export default function Home() {
             <div className="mx-auto w-full max-w-4xl">
                 <h1 className="text-3xl font-semibold">Caption App</h1>
                 <p className="mt-2 text-sm opacity-75">
-                    Start in Feed to upload, generate captions, and vote in one place.
+                    Upload photos, generate captions, and vote on your favorites.
                 </p>
 
                 <ol className="mt-4 list-decimal space-y-1 pl-5 text-sm opacity-80">
-                    <li>Open Feed</li>
-                    <li>Upload an image</li>
+                    <li>Open the feed</li>
+                    <li>Upload a photo</li>
                     <li>Generate captions</li>
-                    <li>Vote in feed</li>
+                    <li>Vote on captions</li>
                 </ol>
 
                 <div className="mt-6 flex flex-wrap gap-3">
@@ -21,13 +21,13 @@ export default function Home() {
                         href="/list"
                         className="rounded-md border px-4 py-2 text-sm font-medium hover:bg-black/5"
                     >
-                        Start in Feed
+                        Open Feed
                     </Link>
                     <Link
                         href="/upload"
                         className="rounded-md border px-4 py-2 text-sm font-medium hover:bg-black/5"
                     >
-                        Standalone Upload
+                        Upload Photo
                     </Link>
                 </div>
             </div>

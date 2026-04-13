@@ -18,7 +18,7 @@ export default async function UploadPage() {
         <main className="p-10">
             <div className="mx-auto w-full max-w-4xl">
                 <h1 className="text-3xl font-semibold mb-2">
-                    Upload Image (Standalone)
+                    Upload Photo
                 </h1>
                 <div className="mb-3 text-sm opacity-70">Signed in as: {user.email}</div>
 
@@ -39,7 +39,7 @@ export default async function UploadPage() {
                 </div>
 
                 <div className="mb-6 text-sm opacity-80">
-                    You can also upload directly on the Feed page. This page is an optional upload-only view.
+                    Add a photo here, generate captions, then open Feed to vote.
                 </div>
 
                 <UploadClient />

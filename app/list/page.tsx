@@ -169,7 +169,7 @@ export default async function ListPage() {
           <h1 className="text-3xl font-semibold mb-2">Caption Feed</h1>
           <div className="mb-2 text-sm opacity-70">Signed in as: {user.email}</div>
           <div className="mb-4 text-sm opacity-80">
-            Start by uploading an image, then vote for the funniest caption.
+            Upload a photo, generate captions, then vote for your favorite.
           </div>
 
           <div className="mb-6 flex flex-wrap items-center gap-2">
@@ -183,9 +183,9 @@ export default async function ListPage() {
           </div>
 
           <section className="mb-8">
-            <h2 className="text-lg font-semibold mb-2">Step 1: Upload and Generate</h2>
+            <h2 className="text-lg font-semibold mb-2">Step 1: Upload a Photo</h2>
             <p className="mb-3 text-sm opacity-75">
-              Choose an image, generate captions, then refresh this page to see it in the feed.
+              Choose a photo, generate captions, then refresh to see it in the feed.
             </p>
             <UploadClient mode="feed" />
           </section>

@@ -283,7 +283,7 @@ export default function UploadClient({ mode = "standalone" }: UploadClientProps)
     return (
         <div className="max-w-xl space-y-4">
             <div className="border rounded-lg p-4">
-                <div className="text-sm font-semibold mb-2">Upload an image</div>
+                <div className="text-sm font-semibold mb-2">Upload a photo</div>
                 <div className="text-xs opacity-70">
                     {isFeedMode
                         ? "JPG, PNG, WEBP, GIF, or HEIC. New captions will appear after refresh."
@@ -306,7 +306,7 @@ export default function UploadClient({ mode = "standalone" }: UploadClientProps)
                         disabled={busy}
                         className="px-3 py-1 text-xs border rounded-md disabled:opacity-50 hover:bg-black/5"
                     >
-                        Choose Image
+                        Choose Photo
                     </button>
                     <div className="text-sm">
                         {file ? file.name : <span className="opacity-60">No file selected</span>}
