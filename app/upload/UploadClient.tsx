@@ -29,6 +29,7 @@ export default function UploadClient({ mode = "standalone" }: UploadClientProps)
     const router = useRouter();
     const fileInputRef = useRef<HTMLInputElement | null>(null);
     const [file, setFile] = useState<File | null>(null);
+    const [previewUrl, setPreviewUrl] = useState<string>("");
     const [busy, setBusy] = useState(false);
     const [status, setStatus] = useState<string>("");
     const [captions, setCaptions] = useState<string[]>([]);
@@ -72,6 +73,20 @@ export default function UploadClient({ mode = "standalone" }: UploadClientProps)
             mounted = false;
         };
     }, []);
+
+    useEffect(() => {
+        if (!file) {
+            setPreviewUrl("");
+            return;
+        }
+
+        const objectUrl = URL.createObjectURL(file);
+        setPreviewUrl(objectUrl);
+
+        return () => {
+            URL.revokeObjectURL(objectUrl);
+        };
+    }, [file]);
 
     function getCaptionText(value: unknown): string | null {
         if (typeof value === "string" && value.trim().length > 0) return value.trim();
@@ -273,6 +288,7 @@ export default function UploadClient({ mode = "standalone" }: UploadClientProps)
 
     function resetUploadForm() {
         setFile(null);
+        setPreviewUrl("");
         setStatus("");
         setCaptions([]);
         if (fileInputRef.current) {
@@ -281,8 +297,8 @@ export default function UploadClient({ mode = "standalone" }: UploadClientProps)
     }
 
     return (
-        <div className="max-w-xl space-y-4">
-            <div className="border rounded-lg p-4">
+        <div className="space-y-5">
+            <div className="rounded-[28px] border border-black/10 bg-white p-5 shadow-[0_20px_60px_rgba(15,23,42,0.08)]">
                 <div className="text-sm font-semibold mb-2">Upload a photo</div>
                 <div className="text-xs opacity-70">
                     {isFeedMode
@@ -299,12 +315,12 @@ export default function UploadClient({ mode = "standalone" }: UploadClientProps)
                     onChange={(e) => setFile(e.target.files?.[0] ?? null)}
                 />
 
-                <div className="mt-3 flex flex-wrap items-center gap-2">
+                <div className="mt-4 flex flex-wrap items-center gap-2">
                     <button
                         type="button"
                         onClick={() => fileInputRef.current?.click()}
                         disabled={busy}
-                        className="px-3 py-1 text-xs border rounded-md disabled:opacity-50 hover:bg-black/5"
+                        className="rounded-full border border-black/10 bg-stone-950 px-4 py-2 text-xs font-medium text-white transition hover:bg-stone-800 disabled:opacity-50"
                     >
                         Choose Photo
                     </button>
@@ -313,13 +329,24 @@ export default function UploadClient({ mode = "standalone" }: UploadClientProps)
                     </div>
                 </div>
 
+                {previewUrl ? (
+                    <div className="mt-4 overflow-hidden rounded-2xl border border-black/10 bg-stone-100">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                            src={previewUrl}
+                            alt="Selected upload preview"
+                            className="h-56 w-full object-cover"
+                        />
+                    </div>
+                ) : null}
+
                 <div className="mt-3">
                     <label className="text-sm font-semibold" htmlFor="humor-flavor-select">
                         Humor flavor
                     </label>
                     <select
                         id="humor-flavor-select"
-                        className="mt-1 w-full border rounded-lg p-2 text-sm"
+                        className="mt-1 w-full rounded-2xl border border-black/10 bg-white p-3 text-sm"
                         disabled={busy || flavorsLoading}
                         value={selectedHumorFlavorId}
                         onChange={(e) => setSelectedHumorFlavorId(e.target.value)}
@@ -345,7 +372,7 @@ export default function UploadClient({ mode = "standalone" }: UploadClientProps)
                     <button
                         onClick={handleUpload}
                         disabled={!file || busy}
-                        className="px-4 py-2 border rounded-md disabled:opacity-50 hover:bg-black/5"
+                        className="rounded-full border border-black/10 bg-amber-300 px-4 py-2 text-sm font-semibold text-stone-950 transition hover:bg-amber-200 disabled:opacity-50"
                     >
                         {busy
                             ? "Working…"
@@ -358,7 +385,7 @@ export default function UploadClient({ mode = "standalone" }: UploadClientProps)
                         <button
                             onClick={() => router.push("/list")}
                             disabled={busy}
-                            className="px-4 py-2 border rounded-md disabled:opacity-50 hover:bg-black/5"
+                            className="rounded-full border border-black/10 px-4 py-2 text-sm transition hover:bg-black/5 disabled:opacity-50"
                         >
                             Go to Feed
                         </button>
@@ -368,7 +395,7 @@ export default function UploadClient({ mode = "standalone" }: UploadClientProps)
                         <button
                             onClick={() => router.push("/")}
                             disabled={busy}
-                            className="px-4 py-2 border rounded-md disabled:opacity-50 hover:bg-black/5"
+                            className="rounded-full border border-black/10 px-4 py-2 text-sm transition hover:bg-black/5 disabled:opacity-50"
                         >
                             Home
                         </button>
@@ -382,20 +409,48 @@ export default function UploadClient({ mode = "standalone" }: UploadClientProps)
                 )}
             </div>
 
-            {captions.length > 0 && (
-                <div className="border rounded-lg p-4">
-                    <div className="text-sm font-semibold mb-2">Generated captions</div>
-                    <ol className="list-decimal space-y-2 pl-5 text-sm">
-                        {captions.map((caption, index) => (
-                            <li key={`${caption}-${index}`}>{caption}</li>
-                        ))}
-                    </ol>
+            {captions.length > 0 && previewUrl && (
+                <div className="overflow-hidden rounded-[28px] border border-black/10 bg-[linear-gradient(135deg,rgba(255,248,237,0.95),rgba(255,255,255,0.98))] shadow-[0_24px_80px_rgba(15,23,42,0.10)]">
+                    <div className="border-b border-black/8 px-5 py-4">
+                        <div className="text-sm font-semibold text-stone-950">Generated captions</div>
+                        <div className="mt-1 text-xs text-stone-600">
+                            Review the image and compare each caption before you head to the feed.
+                        </div>
+                    </div>
 
-                    <div className="mt-4 flex flex-wrap gap-2">
+                    <div className="grid gap-5 p-5 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1.25fr)]">
+                        <div className="rounded-[24px] border border-black/10 bg-white p-3 shadow-sm">
+                            <div className="mb-3 text-xs font-semibold uppercase tracking-[0.24em] text-stone-500">
+                                Uploaded image
+                            </div>
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                                src={previewUrl}
+                                alt="Uploaded image preview"
+                                className="h-full max-h-[420px] w-full rounded-[20px] object-cover"
+                            />
+                        </div>
+
+                        <div className="space-y-3">
+                            {captions.map((caption, index) => (
+                                <article
+                                    key={`${caption}-${index}`}
+                                    className="rounded-[22px] border border-black/10 bg-white p-4 shadow-sm"
+                                >
+                                    <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-stone-500">
+                                        Caption {index + 1}
+                                    </div>
+                                    <p className="text-sm leading-6 text-stone-800">{caption}</p>
+                                </article>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="flex flex-wrap gap-2 border-t border-black/8 px-5 py-4">
                         <button
                             type="button"
                             onClick={resetUploadForm}
-                            className="px-3 py-1 text-xs border rounded-md hover:bg-black/5"
+                            className="rounded-full border border-black/10 px-4 py-2 text-xs font-medium transition hover:bg-black/5"
                         >
                             Upload Another
                         </button>
@@ -404,7 +459,7 @@ export default function UploadClient({ mode = "standalone" }: UploadClientProps)
                             onClick={() =>
                                 isFeedMode ? router.refresh() : router.push("/list")
                             }
-                            className="px-3 py-1 text-xs border rounded-md hover:bg-black/5"
+                            className="rounded-full border border-black/10 bg-stone-950 px-4 py-2 text-xs font-medium text-white transition hover:bg-stone-800"
                         >
                             {isFeedMode ? "Refresh Feed" : "Vote in Feed"}
                         </button>
