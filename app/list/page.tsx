@@ -44,11 +44,10 @@ export default async function ListPage() {
 
   if (!user) return <AuthGate />;
 
-  // 1) Fetch images: public OR owned by current user
+  // 1) Fetch images the signed-in user is allowed to see.
   const { data: images, error: imgError } = await supabase
       .from("images")
       .select("id, created_datetime_utc, profile_id, url")
-      .or(`is_public.eq.true,profile_id.eq.${user.id}`)
       .order("created_datetime_utc", { ascending: false })
       .order("id", { ascending: true })
       .limit(100);
@@ -56,13 +55,12 @@ export default async function ListPage() {
   const rows = (images ?? []) as ImageRow[];
   const imageIds = rows.map((r) => r.id);
 
-  // 2) Fetch captions: public OR owned by current user, for those images
+  // 2) Fetch captions the signed-in user is allowed to see, for those images.
   const { data: captions, error: capError } = imageIds.length
       ? await supabase
           .from("captions")
           .select("id, image_id, content")
           .in("image_id", imageIds)
-          .or(`is_public.eq.true,profile_id.eq.${user.id}`)
           .order("created_datetime_utc", { ascending: false })
           .order("id", { ascending: true })
       : { data: [], error: null };
@@ -100,6 +98,22 @@ export default async function ListPage() {
       error && typeof error === "object" && "message" in error
           ? String((error as { message?: unknown }).message ?? "")
           : "";
+
+  const feedCards = rows.flatMap((row) => {
+    const caps = captionsByImageId.get(row.id) ?? [];
+
+    if (caps.length > 0) {
+      return caps.map((c) =>
+          renderCaptionCard(row, c, voteByCaptionId.get(c.id) ?? 0),
+      );
+    }
+
+    if (row.profile_id === user.id) {
+      return [renderImageOnlyCard(row)];
+    }
+
+    return [];
+  });
 
   // Helper render: image-only card (for images with no visible captions)
   const renderImageOnlyCard = (row: ImageRow) => (
@@ -209,24 +223,15 @@ export default async function ListPage() {
                   Use Step 1 above to upload your first image and generate captions.
                 </p>
               </div>
-          ) : (
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {rows.flatMap((row) => {
-                  const caps = captionsByImageId.get(row.id) ?? [];
-
-                  if (caps.length > 0) {
-                    return caps.map((c) =>
-                        renderCaptionCard(row, c, voteByCaptionId.get(c.id) ?? 0),
-                    );
-                  }
-
-                  if (row.profile_id === user.id) {
-                    return [renderImageOnlyCard(row)];
-                  }
-
-                  return [];
-                })}
+          ) : feedCards.length === 0 ? (
+              <div className="border rounded-lg p-4">
+                <p className="font-semibold">No public captions are available yet.</p>
+                <p className="mt-1 text-sm opacity-70">
+                  Public caption submissions will appear here automatically as soon as they are visible to your account.
+                </p>
               </div>
+          ) : (
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{feedCards}</div>
           )}
         </div>
       </main>
