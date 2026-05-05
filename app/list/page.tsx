@@ -7,6 +7,8 @@ import UploadClient from "../upload/UploadClient";
 
 export const dynamic = "force-dynamic";
 
+const VOTE_QUERY_BATCH_SIZE = 200;
+
 type ImageRow = {
   id: string;
   created_datetime_utc: string | null;
@@ -68,16 +70,27 @@ export default async function ListPage() {
   const captionRows = (captions ?? []) as CaptionRow[];
   const captionIds = captionRows.map((c) => c.id);
 
-  // 3) Fetch current user's votes for visible captions (for button state)
-  const { data: votes, error: voteError } = captionIds.length
-      ? await supabase
-          .from("caption_votes")
-          .select("caption_id, vote_value")
-          .eq("profile_id", user.id)
-          .in("caption_id", captionIds)
-      : { data: [], error: null };
+  // 3) Fetch current user's votes for visible captions (for button state).
+  // Supabase rejects very large "in" URLs, so keep each request comfortably small.
+  const voteRows: VoteRow[] = [];
+  let voteError: unknown = null;
 
-  const voteRows = (votes ?? []) as VoteRow[];
+  for (let start = 0; start < captionIds.length; start += VOTE_QUERY_BATCH_SIZE) {
+    const batch = captionIds.slice(start, start + VOTE_QUERY_BATCH_SIZE);
+    const { data, error } = await supabase
+        .from("caption_votes")
+        .select("caption_id, vote_value")
+        .eq("profile_id", user.id)
+        .in("caption_id", batch);
+
+    if (error) {
+      voteError = error;
+      break;
+    }
+
+    voteRows.push(...((data ?? []) as VoteRow[]));
+  }
+
   const voteByCaptionId = new Map<string, 1 | -1>();
   for (const vote of voteRows) {
     if (vote.vote_value === 1 || vote.vote_value === -1) {
