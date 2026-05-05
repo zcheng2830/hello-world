@@ -10,6 +10,7 @@ export const dynamic = "force-dynamic";
 type ImageRow = {
   id: string;
   created_datetime_utc: string | null;
+  profile_id: string | null;
   url: string | null;
 };
 
@@ -46,7 +47,7 @@ export default async function ListPage() {
   // 1) Fetch images: public OR owned by current user
   const { data: images, error: imgError } = await supabase
       .from("images")
-      .select("id, created_datetime_utc, url")
+      .select("id, created_datetime_utc, profile_id, url")
       .or(`is_public.eq.true,profile_id.eq.${user.id}`)
       .order("created_datetime_utc", { ascending: false })
       .order("id", { ascending: true })
@@ -212,10 +213,18 @@ export default async function ListPage() {
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {rows.flatMap((row) => {
                   const caps = captionsByImageId.get(row.id) ?? [];
-                  if (caps.length === 0) return [renderImageOnlyCard(row)];
-                  return caps.map((c) =>
-                      renderCaptionCard(row, c, voteByCaptionId.get(c.id) ?? 0),
-                  );
+
+                  if (caps.length > 0) {
+                    return caps.map((c) =>
+                        renderCaptionCard(row, c, voteByCaptionId.get(c.id) ?? 0),
+                    );
+                  }
+
+                  if (row.profile_id === user.id) {
+                    return [renderImageOnlyCard(row)];
+                  }
+
+                  return [];
                 })}
               </div>
           )}
