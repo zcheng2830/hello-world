@@ -99,22 +99,6 @@ export default async function ListPage() {
           ? String((error as { message?: unknown }).message ?? "")
           : "";
 
-  const feedCards = rows.flatMap((row) => {
-    const caps = captionsByImageId.get(row.id) ?? [];
-
-    if (caps.length > 0) {
-      return caps.map((c) =>
-          renderCaptionCard(row, c, voteByCaptionId.get(c.id) ?? 0),
-      );
-    }
-
-    if (row.profile_id === user.id) {
-      return [renderImageOnlyCard(row)];
-    }
-
-    return [];
-  });
-
   // Helper render: image-only card (for images with no visible captions)
   const renderImageOnlyCard = (row: ImageRow) => (
       <div
@@ -177,6 +161,22 @@ export default async function ListPage() {
         </div>
       </div>
   );
+
+  const feedCards = rows.flatMap((row) => {
+    const caps = captionsByImageId.get(row.id) ?? [];
+
+    if (caps.length > 0) {
+      return caps.map((c) =>
+          renderCaptionCard(row, c, voteByCaptionId.get(c.id) ?? 0),
+      );
+    }
+
+    if (row.profile_id === user.id) {
+      return [renderImageOnlyCard(row)];
+    }
+
+    return [];
+  });
 
   return (
       <main className="p-10">
